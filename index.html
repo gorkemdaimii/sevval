@@ -1,118 +1,152 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>OLA AR</title>
-
-  <style>
-    body { margin: 0; overflow: hidden; }
-    #arButton {
-      position: fixed;
-      left: 50%;
-      bottom: 25px;
-      transform: translateX(-50%);
-      padding: 14px 20px;
-      border: none;
-      background: #ff1e1e;
-      color: #fff;
-      font-size: 18px;
-      border-radius: 8px;
-      z-index: 20;
-    }
-  </style>
-
-  <!-- THREE -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
-  <!-- GLTF LOADER -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/examples/js/loaders/GLTFLoader.js"></script>
-</head>
-
-<body>
-
-<button id="arButton">AR Modunu Aç</button>
-
-<script>
-  let camera, scene, renderer, model, hitTestSource = null, localSpace;
-
-  async function init() {
-
-    // XR destek kontrolü
-    if (!navigator.xr) {
-      alert("Cihazın WebXR desteklemiyor!");
-      return;
-    }
-
-    const supported = await navigator.xr.isSessionSupported("immersive-ar");
-    if (!supported) {
-      alert("Bu cihazda AR desteklenmiyor.");
-      return;
-    }
-
-    // Renderer
-    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    // Scene
-    scene = new THREE.Scene();
-
-    // Camera
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.01, 20);
-
-    // Model yükle
-    const loader = new THREE.GLTFLoader();
-    loader.load("ola.glb", (gltf) => {
-      model = gltf.scene;
-      model.visible = false;
-      model.scale.set(0.4, 0.4, 0.4);
-      scene.add(model);
-    });
-  }
-
-  async function activateAR() {
-    const session = await navigator.xr.requestSession("immersive-ar", {
-      requiredFeatures: ["hit-test", "local"]
-    });
-
-    renderer.xr.setSession(session);
-
-    const viewerSpace = await session.requestReferenceSpace("viewer");
-    hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
-
-    localSpace = await session.requestReferenceSpace("local");
-
-    renderer.setAnimationLoop((timestamp, frame) => {
-
-      if (frame && hitTestSource) {
-        const hits = frame.getHitTestResults(hitTestSource);
-        if (hits.length > 0 && model) {
-          const pose = hits[0].getPose(localSpace);
-
-          model.visible = true;
-          model.position.set(
-            pose.transform.position.x,
-            pose.transform.position.y,
-            pose.transform.position.z
-          );
-          model.quaternion.set(
-            pose.transform.orientation.x,
-            pose.transform.orientation.y,
-            pose.transform.orientation.z,
-            pose.transform.orientation.w
-          );
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Model Görüntüleyici</title>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      }
 
-      renderer.render(scene, camera);
-    });
-  }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-  document.getElementById("arButton").addEventListener("click", activateAR);
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
 
-  init();
-</script>
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
 
+        p {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .upload-area {
+            display: none;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            display: none;
+        }
+
+        .file-info {
+            display: none;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 400px;
+            border-radius: 15px;
+            margin: 20px 0;
+            display: none;
+            background: #f5f5f5;
+        }
+
+        model-viewer.show {
+            display: block;
+        }
+
+        .ar-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: none;
+        }
+
+        .ar-button.show {
+            display: inline-block;
+        }
+
+        .ar-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .ar-button:active {
+            transform: translateY(0);
+        }
+
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 10px;
+            font-size: 0.9em;
+            color: #856404;
+            display: none;
+        }
+
+        .instructions.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 AR Model Görüntüleyici</h1>
+        <p>3D modelinizi AR modunda görüntüleyin</p>
+
+        <model-viewer id="modelViewer"
+            src="ola.glb"
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            shadow-intensity="1"
+            auto-rotate
+            class="show">
+        </model-viewer>
+
+        <button class="ar-button show" id="arButton">
+            🥽 AR Modunda Görüntüle
+        </button>
+
+        <div class="instructions show" id="instructions">
+            <strong>📱 Mobil cihazda:</strong> AR butonuna tıklayın ve cihazınızın AR özelliğini kullanın.<br>
+            <strong>💻 Masaüstünde:</strong> Modeli döndürüp inceleyebilirsiniz.
+        </div>
+    </div>
+
+    <script>
+        const modelViewer = document.getElementById('modelViewer');
+        const arButton = document.getElementById('arButton');
+
+        // AR button click
+        arButton.addEventListener('click', () => {
+            modelViewer.activateAR();
+        });
+    </script>
 </body>
 </html>
